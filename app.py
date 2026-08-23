@@ -24,6 +24,8 @@ REDIRECT_URI = "https://storyforge.wiradifit-makmur-sejahtera.duckdns.org/auth/c
 AUTHORIZE_URL = "https://enter.pollinations.ai/authorize"
 TOKEN_URL = "https://enter.pollinations.ai/api/oauth/token"
 GEN_BASE = "https://gen.pollinations.ai"
+# Cloudflare on pollinations infra blocks python-urllib fingerprints (err 1010)
+OUTBOUND_UA = "Mozilla/5.0 (X11; Linux x86_64) StoryForge/1.0"
 PORT = 3095
 DB = os.path.join(os.path.dirname(__file__), "..", "state", "storyforge.db")
 
@@ -210,7 +212,8 @@ class Handler(BaseHTTPRequestHandler):
                 "client_id": CLIENT_ID, "redirect_uri": REDIRECT_URI,
                 "code_verifier": sess["verifier"]}).encode()
             req = urllib.request.Request(TOKEN_URL, data=data, method="POST",
-                headers={"Content-Type": "application/x-www-form-urlencoded"})
+                headers={"Content-Type": "application/x-www-form-urlencoded",
+                         "User-Agent": OUTBOUND_UA})
             try:
                 tok = json.loads(urllib.request.urlopen(req, timeout=30).read())
             except urllib.error.HTTPError as e:
@@ -219,7 +222,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send("<p class=err>Token exchange failed. <a href=/auth/start>Retry</a></p>", 502); return
             sk = tok["access_token"]
             preq = urllib.request.Request(f"{GEN_BASE}/account/profile",
-                                          headers={"Authorization": f"Bearer {sk}"})
+                headers={"Authorization": f"Bearer {sk}", "User-Agent": OUTBOUND_UA})
             try:
                 prof = json.loads(urllib.request.urlopen(preq, timeout=20).read())
                 gh = prof.get("githubUsername") or "anon"
@@ -287,11 +290,12 @@ class Handler(BaseHTTPRequestHandler):
             data = json.dumps({"model":"openai","messages":[{"role":"user","content":prompt}],
                                "max_tokens": 800}).encode()
             req = urllib.request.Request(f"{GEN_BASE}/v1/chat/completions", data=data, method="POST",
-                headers={"Authorization": f"Bearer {sk}", "Content-Type": "application/json"})
+                headers={"Authorization": f"Bearer {sk}", "Content-Type": "application/json",
+                         "User-Agent": OUTBOUND_UA})
             story = json.loads(urllib.request.urlopen(req, timeout=120).read())["choices"][0]["message"]["content"]
             img_req = urllib.request.Request(
                 f"{GEN_BASE}/image/{urllib.parse.quote('storybook illustration, ' + idea[:120])}?model=flux&width=512&height=512&nologo=true",
-                headers={"Authorization": f"Bearer {sk}"})
+                headers={"Authorization": f"Bearer {sk}", "User-Agent": OUTBOUND_UA})
             art = urllib.request.urlopen(img_req, timeout=180).read()
             art_id = secrets.token_hex(8)
             with LOCK:
