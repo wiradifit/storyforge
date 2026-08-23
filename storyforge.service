@@ -1,0 +1,26 @@
+[Unit]
+Description=StoryForge - Pollinations BYOP story app (hardened)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/pollination-quests/storyforge
+ExecStart=/usr/bin/python3 /home/ubuntu/pollination-quests/storyforge/app.py
+Restart=always
+RestartSec=5
+
+# --- sandbox ---
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/pollination-quests/state
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+MemoryMax=400M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target
